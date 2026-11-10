@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>منصة ارتكاز</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+Bhaijaan+2:wght@500;600;700;800&family=Tajawal:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<script>try{var t=localStorage.getItem("lijan-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<div class="app">
+  <aside class="side">
+    <a href="#home" class="side-brand" aria-label="الرئيسية">
+      <span class="avatar"><img src="logo.png" alt="شعار المدرسة" width="284" height="200"></span>
+      <span class="side-brand-txt"><b id="schoolName">مدرسة أبو عبالي الساحل للتعليم الأساسي</b><em id="schoolGrades">الصفوف (<bdi dir="ltr">1-4</bdi>)</em><small>منصة ارتكاز · متابعة أعمال المجالات</small></span>
+    </a>
+    <nav class="side-nav" id="sideNav" aria-label="التنقل"></nav>
+    <div class="side-foot">
+      <button type="button" class="theme-btn" id="themeBtn" data-act="theme" aria-label="تبديل الوضع الداكن"><span class="ic" id="themeIc" aria-hidden="true"></span><span id="themeTxt">الوضع الداكن</span></button>
+    </div>
+  </aside>
+  <div class="main">
+    <div id="demoBanner" class="demo" hidden></div>
+    <main id="view"></main>
+    <footer class="foot">مبني على دليل «مجالات تقويم أداء المدارس» — 5 مجالات، 21 معيارًا، 78 مؤشرًا</footer>
+  </div>
+</div>
+<div id="lightbox" class="lightbox" hidden></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="config.js"></script>
+<script src="indicators.js"></script>
+<script src="api.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
