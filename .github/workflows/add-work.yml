@@ -1,0 +1,43 @@
+# يضيف كل عمل جديد يصل من Power Automate إلى data/works.json
+name: إضافة عمل جديد
+on:
+  repository_dispatch:
+    types: [new-work]
+permissions:
+  contents: write
+concurrency:
+  group: works
+  cancel-in-progress: false
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: إضافة العمل إلى الملف
+        run: |
+          python3 - <<'PY'
+          import json, os, datetime
+          ev = json.load(open(os.environ['GITHUB_EVENT_PATH'], encoding='utf-8'))
+          w = ev.get('client_payload') or {}
+          if isinstance(w.get('w'), dict): w = w['w']
+          keep = ['id', 'domain', 'indicator', 'title', 'date', 'desc', 'author', 'files', 'links']
+          item = {k: (w.get(k) if w.get(k) is not None else '') for k in keep}
+          item = {k: (v.strip() if isinstance(v, str) else v) for k, v in item.items()}
+          item['created'] = w.get('created') or datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+          path = 'data/works.json'
+          try: data = json.load(open(path, encoding='utf-8'))
+          except Exception: data = []
+          data = [x for x in data if not (item['id'] and str(x.get('id')) == str(item['id']))]
+          data.append(item)
+          os.makedirs('data', exist_ok=True)
+          json.dump(data, open(path, 'w', encoding='utf-8'), ensure_ascii=False, indent=1)
+          print('works:', len(data))
+          PY
+      - name: حفظ التغيير
+        run: |
+          git config user.name "irtikaz-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/works.json
+          git diff --cached --quiet && exit 0
+          git commit -m "عمل جديد"
+          for i in 1 2 3; do git pull --rebase && git push && break; sleep 5; done
