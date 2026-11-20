@@ -615,18 +615,3 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .fm-live-h h2 .svg-ic { width: 20px; height: 20px; color: var(--dc); }
 .fm-live-h .fm-sub { margin: 0; }
 .fm-live-h .filter-chip { margin-inline-start: auto; }
-
-/* الصورة المنسدلة */
-.imgdrop { max-width: 100%; }
-.imgdrop[open] { flex-basis: 100%; }
-.imgdrop > summary { cursor: pointer; list-style: none; user-select: none; }
-.imgdrop > summary::-webkit-details-marker { display: none; }
-.drop-ar { width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: -3px 2px 0 4px; transition: transform .2s; flex: none; }
-.imgdrop[open] .drop-ar { transform: rotate(-135deg); margin-top: 3px; }
-.imgdrop-body { margin-top: 8px; animation: dropIn .25s ease; }
-.imgdrop-body img { display: block; max-width: 100%; max-height: 420px; border-radius: 14px; border: 1px solid var(--glass-line); box-shadow: var(--clay-sm); background: var(--surface); }
-.imgdrop-err { display: none; margin: 0; font-size: 13px; color: var(--muted); }
-.imgdrop.err .imgdrop-body > a { display: none; }
-.imgdrop.err .imgdrop-err { display: block; }
-@keyframes dropIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .imgdrop-body { animation: none; } .drop-ar { transition: none; } }
