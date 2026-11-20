@@ -14,6 +14,9 @@ window.CONFIG = {
   WORKBOOK_BASE: "https://moeom-my.sharepoint.com/personal/sc3212_moe_om/_layouts/15/Doc.aspx?sourcedoc=%7BD3297C9C-D329-417F-A878-7CE9B4738823%7D",
   EXCEL_URL: "https://moeom-my.sharepoint.com/:x:/r/personal/sc3212_moe_om/_layouts/15/Doc.aspx?sourcedoc=%7BD3297C9C-D329-417F-A878-7CE9B4738823%7D&action=view",
 
+  // ملف الأعمال المنشور بتصميم الموقع (يحدّثه Power Automate عبر GitHub تلقائيًا)
+  DATA_URL: "data/works.json",
+
   SCHOOL_NAME: "مدرسة أبو عبالي الساحل للتعليم الأساسي",
   SCHOOL_GRADES: "الصفوف (1-4)",
   ACADEMIC_YEAR: "2026/2027",

@@ -21,7 +21,7 @@
   };
 
   var state = {
-    works: [], loaded: false, error: null,
+    works: [], loaded: false, error: null, live: false,
     tab: null, indFilter: null, form: null,
     sub: 'timeline', f: { c: '', m: '', q: '', ind: '' },
     rep: { c: '', empty: true }, lb: null
@@ -133,7 +133,7 @@
         '</p><button class="btn primary" data-act="refresh">إعادة المحاولة</button></div></div>';
       return;
     }
-    v.innerHTML = state.tab === 'home' ? homeHTML() : state.tab === 'guide' ? guideHTML() : state.tab === 'mudeera' ? (FM ? fmSupervisorHTML() : mudeeraHTML()) : (FM ? fmDomainHTML(+state.tab.slice(1)) : committeeHTML(+state.tab.slice(1)));
+    v.innerHTML = state.tab === 'home' ? homeHTML() : state.tab === 'guide' ? guideHTML() : state.tab === 'mudeera' ? (FM && !state.live ? fmSupervisorHTML() : mudeeraHTML()) : (FM ? fmDomainHTML(+state.tab.slice(1)) : committeeHTML(+state.tab.slice(1)));
   }
 
   function route() {
@@ -146,7 +146,55 @@
     window.scrollTo(0, 0);
   }
 
+  /* ---------- بيانات النموذج المنشورة (data/works.json) ---------- */
+  function normDate(v) {
+    v = String(v == null ? '' : v).trim();
+    if (!v) return '';
+    if (/^\d{4}-\d{2}-\d{2}/.test(v)) return v.slice(0, 10);
+    if (/^\d{5}(\.\d+)?$/.test(v)) return new Date(Date.UTC(1899, 11, 30) + parseFloat(v) * 86400000).toISOString().slice(0, 10);
+    var m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(v);
+    if (m) return m[3] + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2);
+    var d = new Date(v); return isNaN(d) ? '' : d.toISOString().slice(0, 10);
+  }
+  function normFiles(v) {
+    if (!v) return [];
+    var a = v;
+    if (typeof v === 'string') { try { a = JSON.parse(v); } catch (e) { return []; } }
+    if (!Array.isArray(a)) return [];
+    return a.map(function (f, i) { var u = String(f.link || f.url || ''); try { u = encodeURI(decodeURI(u)); } catch (e) {} return { id: String(i), name: f.name || 'ملف', url: u }; })
+      .filter(function (f) { return /^https?:/i.test(f.url); });
+  }
+  function normLinks(v) {
+    var out = [];
+    String(v || '').replace(/https?:\/\/[^\s<>"'،]+/gi, function (u) { out.push(u.replace(/[).,;]+$/, '')); });
+    return out;
+  }
+  function normWork(r) {
+    var dn = String(r.domain || '').trim();
+    var d = D.find(function (x) { return x.name === dn || x.committee === dn; }) ||
+      D.find(function (x) { return dn && (dn.indexOf(x.name) >= 0 || x.name.indexOf(dn) >= 0); });
+    var itxt = String(r.indicator || '').trim();
+    var code = (/\d+\.\d+\.\d+/.exec(itxt) || [itxt])[0];
+    if (!d && /^\d/.test(code)) d = D[+code[0] - 1];
+    return {
+      id: String(r.id || ''), committee: d ? d.n : 0, indicator: code,
+      title: String(r.title || '').trim() || 'عمل بلا عنوان', date: normDate(r.date) || normDate(r.created),
+      desc: String(r.desc || '').trim(), author: String(r.author || '').trim(),
+      created: String(r.created || ''), attachments: normFiles(r.files), links: normLinks(r.links)
+    };
+  }
+
   async function load() {
+    if (FM && C.DATA_URL) {
+      try {
+        var res = await fetch(C.DATA_URL + (C.DATA_URL.indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now(), { cache: 'no-store' });
+        if (!res.ok) throw new Error(res.status);
+        var raw = await res.json();
+        state.works = (Array.isArray(raw) ? raw : raw.works || []).map(normWork).filter(function (w) { return w.committee; });
+        state.live = true;
+      } catch (e) { state.works = []; state.live = false; }
+      state.error = null; state.loaded = true; render(); return;
+    }
     if (FM) { state.works = []; state.error = null; state.loaded = true; render(); return; }
     try { state.works = await API.list(); state.error = null; }
     catch (e) { state.error = e.message || 'خطأ غير معروف'; }
@@ -166,7 +214,7 @@
           '<img src="' + esc(safeUrl(x.thumb)) + '" alt="" loading="lazy"><span class="thumb-alt">' + esc(x.name) + '</span></button>';
       }).join('') +
       files.map(function (x) {
-        return '<a class="fchip" href="' + esc(safeUrl(x.url)) + '" target="_blank" rel="noopener"><span class="ext">' + esc(ext(x.name)) + '</span><span class="fname">' + esc(x.name) + '</span></a>';
+        return '<a class="fchip" href="' + esc(safeUrl(x.url)) + '" target="_blank" rel="noopener"><span class="ext">' + esc(/\.(jpe?g|png|gif|webp|heic)$/i.test(x.name) ? 'صورة' : ext(x.name)) + '</span><span class="fname">' + esc(x.name) + '</span></a>';
       }).join('') +
       l.map(function (u) {
         var host = u; try { host = new URL(u).hostname.replace(/^www\./, ''); } catch (e) {}
@@ -184,7 +232,7 @@
       (ind ? '<p class="ind-name">' + esc(ind.name) + '</p>' : '') +
       (w.desc ? '<p class="desc">' + esc(w.desc) + '</p>' : '') +
       attsHTML(w) +
-      '<div class="work-foot"><span>أدخلته: <b>' + esc(w.author) + '</b>' + (w.updated ? ' · عُدّل ' + relTime(w.updated) : '') + '</span>' +
+      '<div class="work-foot"><span>' + (FM ? 'سجّلته' : 'أدخلته') + ': <b>' + esc(w.author) + '</b>' + (w.updated ? ' · عُدّل ' + relTime(w.updated) : '') + '</span>' +
       (opts && opts.editable ? '<button type="button" class="btn small ghost" data-act="edit" data-id="' + esc(w.id) + '">تعديل</button>' : '') +
       '</div></article>';
   }
@@ -207,7 +255,7 @@
         '<span class="hcard-top">' + tile('d' + d.n) + (mine === 'c' + d.n ? '<span class="hcard-mine">مجالي</span>' : '<span class="hcard-n">' + d.n + '</span>') + '</span>' +
         '<span class="hcard-name">' + esc(d.committee) + '</span>' +
         '<span class="hcard-def">' + esc(d.def) + '</span>' +
-        (FM ? '<span class="hcard-meta">' + d.standards.length + ' معايير · ' + d.count + ' مؤشرًا</span>' : '<span class="hcard-meta"><b>' + l.length + '</b> ' + (l.length === 1 ? 'عمل' : l.length === 2 ? 'عملان' : l.length >= 3 && l.length <= 10 ? 'أعمال' : 'عملًا') + ' · ' + d.count + ' مؤشرًا</span>') +
+        (FM && !state.live ? '<span class="hcard-meta">' + d.standards.length + ' معايير · ' + d.count + ' مؤشرًا</span>' : '<span class="hcard-meta"><b>' + l.length + '</b> ' + (l.length === 1 ? 'عمل' : l.length === 2 ? 'عملان' : l.length >= 3 && l.length <= 10 ? 'أعمال' : 'عملًا') + ' · ' + d.count + ' مؤشرًا</span>') +
         '<span class="hcard-go" aria-hidden="true">' + ic('arrow') + '</span></a>';
     }).join('');
     cards += '<a href="#mudeera" class="hcard hcard-md"><span class="hcard-top">' + tile('eye', 'var(--brand-soft)') + '</span>' +
@@ -260,7 +308,7 @@
     var head = '<section class="cm-head" style="--dc:var(--d' + n + ');--tint:var(--t' + n + ')">' + BACK +
       '<div class="cm-head-in"><div class="cm-title">' + tile('d' + n) + '<div><p class="eyebrow">المجال ' + ordinal + '</p><h1>' + esc(d.committee) + '</h1>' +
       '<p class="sub">' + d.standards.length + ' معايير · ' + d.count + ' مؤشرًا</p></div></div></div>' +
-      '<p class="cm-def">' + esc(d.def) + '</p></section>';
+      '<p class="cm-def">' + esc(d.def) + '</p>' + (state.live ? liveStats(n) : '') + '</section>';
     var steps = '<section class="fm-card" style="--dc:var(--d' + n + ')">' +
       '<div class="fm-card-h">' + tile('list') + '<div><h2>تسجيل عمل منجز</h2><p class="fm-sub">التسجيل في نموذج Microsoft Forms ببريد الوزارة</p></div></div>' +
       '<ol class="fm-steps">' +
@@ -273,7 +321,8 @@
       '<span class="fm-note">يمكنكِ تعديل ما أرسلتِه لاحقًا من رابط التعديل الذي يظهر بعد الإرسال.</span></div>' +
       '</section>';
     var works = '';
-    if (C.WORKBOOK_BASE) {
+    if (state.live) works = liveWorks(n);
+    else if (C.WORKBOOK_BASE) {
       var sh = encodeURIComponent("'D" + n + "'!A1");
       var viewUrl = C.WORKBOOK_BASE + '&action=view&activeCell=' + sh;
       var embedUrl = C.WORKBOOK_BASE + '&action=embedview&wdAllowInteractivity=False&Item=' + encodeURIComponent("'D" + n + "'!A1:G300") +
@@ -284,7 +333,7 @@
         '<div class="fm-actions"><a class="btn ghost" href="' + esc(viewUrl) + '" target="_blank" rel="noopener">' + ic('eye') + 'فتح القائمة في Excel</a></div>' +
         '</section>';
     }
-    var aside = '<aside class="cm-aside fm-inds"><details open><summary><h2>مؤشرات المجال</h2><span class="hint">ستختارين واحدًا منها في النموذج</span></summary>' +
+    var aside = state.live ? liveAside(n) : '<aside class="cm-aside fm-inds"><details open><summary><h2>مؤشرات المجال</h2><span class="hint">ستختارين واحدًا منها في النموذج</span></summary>' +
       d.standards.map(function (s) {
         return '<div class="std"><h3><span>' + s.code + '</span> ' + esc(s.name) + '</h3><ul>' +
           s.indicators.map(function (i) {
@@ -292,6 +341,35 @@
           }).join('') + '</ul></div>';
       }).join('') + '</details></aside>';
     return '<div class="page">' + head + '<div class="cm-grid" style="--dc:var(--d' + n + ')"><div class="cm-main">' + steps + works + '</div>' + aside + '</div></div>';
+  }
+
+  function liveStats(n) {
+    var d = dom(n), list = worksOf(n), cov = covSet(list);
+    return '<dl class="cm-stats"><div><dt>' + ic('list') + 'الأعمال المسجلة</dt><dd>' + list.length + '</dd></div>' +
+      '<div><dt>' + ic('target') + 'مؤشرات لها أعمال</dt><dd>' + cov.size + '<small> / ' + d.count + '</small></dd></div>' +
+      '<div><dt>' + ic('clock') + 'آخر إدخال</dt><dd class="txt">' + relTime(lastEntry(list)) + '</dd></div></dl>';
+  }
+  function liveWorks(n) {
+    var list = worksOf(n);
+    var shown = state.indFilter ? list.filter(function (w) { return w.indicator === state.indFilter; }) : list;
+    var chip = state.indFilter ? '<span class="filter-chip">المؤشر ' + esc(state.indFilter) + '<button type="button" data-act="clearInd" aria-label="إلغاء التصفية">×</button></span>' : '';
+    var body = shown.length ? shown.map(function (w) { return workCard(w); }).join('') :
+      '<div class="empty"><p>' + (state.indFilter ? 'لا أعمال مسجلة لهذا المؤشر بعد.' : 'لم تُسجَّل أعمال لهذا المجال بعد.') + '</p><p>ابدئي بزر «تسجيل عمل جديد».</p></div>';
+    return '<section class="fm-live" style="--dc:var(--d' + n + ')">' +
+      '<div class="fm-live-h"><h2>' + ic('eye') + 'أعمال المجال</h2><span class="fm-sub">الأحدث أولًا · يظهر العمل الجديد خلال دقائق من إرساله</span>' + chip + '</div>' +
+      '<div class="works">' + body + '</div></section>';
+  }
+  function liveAside(n) {
+    var d = dom(n), list = worksOf(n);
+    return '<aside class="cm-aside"><details open><summary><h2>مؤشرات المجال</h2><span class="hint">اضغطي مؤشرًا لعرض أعماله</span></summary>' +
+      d.standards.map(function (s) {
+        return '<div class="std"><h3><span>' + s.code + '</span> ' + esc(s.name) + '</h3><ul>' +
+          s.indicators.map(function (i) {
+            var c = indCount(list, i.code);
+            return '<li><button type="button" class="ind' + (state.indFilter === i.code ? ' on' : '') + (c ? '' : ' zero') + '" data-act="ind" data-ind="' + i.code + '">' +
+              '<span class="ind-code">' + i.code + '</span><span class="ind-text">' + esc(i.name) + '</span><span class="ind-n">' + c + '</span></button></li>';
+          }).join('') + '</ul></div>';
+      }).join('') + '</details></aside>';
   }
 
   /* ---------- دليل الاستخدام ---------- */
@@ -335,16 +413,19 @@
     var head = '<section class="hero md-hero"><div class="hero-txt">' + BACK.replace('class="back"', 'class="back on-dark"') +
       '<p class="eyebrow light">اطلاع فقط</p><h1>الفريق الإشرافي</h1>' +
       '<p>متابعة المجالات الخمسة والتقرير. الأعمال محفوظة في حساب المدرسة، وتُفتح ببريد المدرسة.</p></div>' + HERO_ART + '</section>';
+    var cards = fmLinksHTML();
+    var note = '<section class="fm-card"><div class="fm-card-h">' + tile('bell') + '<div><h2>إشعار بكل عمل جديد</h2>' +
+      '<p class="fm-sub">يصل إلى بريد المدرسة إشعار مع كل عمل تسجّله معلمة، فيه المجال والمؤشر والعنوان.</p></div></div></section>';
+    return '<div class="page md">' + head + cards + note + '</div>';
+  }
+  function fmLinksHTML() {
     var excel = C.EXCEL_URL && String(C.EXCEL_URL).trim();
-    var cards = '<div class="fm-links">' +
+    return '<div class="fm-links">' +
       '<a class="fm-link k1" href="' + esc(C.FORM_RESULTS_URL || C.FORM_URL) + '" target="_blank" rel="noopener">' + tile('eye', 'var(--d1)') +
         '<b>نتائج النموذج</b><span>عدد الأعمال، ورسم توزيعها على المجالات والمؤشرات، وكل عمل بتفاصيله وصوره.</span><em>يفتح في Forms ←</em></a>' +
       (excel ? '<a class="fm-link k2" href="' + esc(C.EXCEL_URL) + '" target="_blank" rel="noopener">' : '<div class="fm-link k2 off">') + tile('cal', 'var(--d3)') +
         '<b>لوحة المتابعة في Excel</b><span>الأعمال خلال الأشهر، وتوزيعها على المجالات، والمؤشرات التي لم يُسجَّل لها عمل بعد.</span><em>' + (excel ? 'يفتح في Excel ←' : 'قيد التجهيز') + '</em>' + (excel ? '</a>' : '</div>') +
       '</div>';
-    var note = '<section class="fm-card"><div class="fm-card-h">' + tile('bell') + '<div><h2>إشعار بكل عمل جديد</h2>' +
-      '<p class="fm-sub">يصل إلى بريد المدرسة إشعار مع كل عمل تسجّله معلمة، فيه المجال والمؤشر والعنوان.</p></div></div></section>';
-    return '<div class="page md">' + head + cards + note + '</div>';
   }
 
   /* ---------- نموذج الإدخال ---------- */
@@ -491,7 +572,8 @@
     }).join('') + '</div>';
 
     var body = state.sub === 'coverage' ? coverageHTML() : state.sub === 'report' ? reportHTML() : timelineHTML();
-    return '<div class="page md">' + head + kpis + charts + '<h2 class="sec-title">المجالات</h2>' + cards + subnav + '<div id="subview">' + body + '</div></div>';
+    var extra = FM ? '<h2 class="sec-title">مصادر البيانات</h2>' + fmLinksHTML() : '';
+    return '<div class="page md">' + head + kpis + charts + '<h2 class="sec-title">المجالات</h2>' + cards + subnav + '<div id="subview">' + body + '</div>' + extra + '</div>';
   }
   function kpi(v, label, sub, icon, k) {
     return '<div class="kpi k' + k + '">' + tile(icon) + '<span class="kpi-l">' + label + '</span><b>' + v + '</b><span class="kpi-s">' + sub + '</span></div>';
