@@ -214,6 +214,12 @@
           '<img src="' + esc(safeUrl(x.thumb)) + '" alt="" loading="lazy"><span class="thumb-alt">' + esc(x.name) + '</span></button>';
       }).join('') +
       files.map(function (x) {
+        if (FM && /\.(jpe?g|png|gif|webp)$/i.test(x.name)) {
+          var u = esc(safeUrl(x.url));
+          return '<details class="imgdrop"><summary class="fchip"><span class="ext">صورة</span><span class="fname">' + esc(x.name) + '</span><span class="drop-ar" aria-hidden="true"></span></summary>' +
+            '<div class="imgdrop-body"><a href="' + u + '" target="_blank" rel="noopener"><img src="' + u + '" alt="' + esc(x.name) + '" loading="lazy" onerror="this.closest(\'.imgdrop\').classList.add(\'err\')"></a>' +
+            '<p class="imgdrop-err">تظهر الصورة هنا لمن يفتح الموقع وهو داخل بحساب المدرسة. <a href="' + u + '" target="_blank" rel="noopener">فتح الصورة</a></p></div></details>';
+        }
         return '<a class="fchip" href="' + esc(safeUrl(x.url)) + '" target="_blank" rel="noopener"><span class="ext">' + esc(/\.(jpe?g|png|gif|webp|heic)$/i.test(x.name) ? 'صورة' : ext(x.name)) + '</span><span class="fname">' + esc(x.name) + '</span></a>';
       }).join('') +
       l.map(function (u) {
